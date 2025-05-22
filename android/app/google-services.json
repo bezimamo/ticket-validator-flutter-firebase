@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "292707401346",
+    "project_id": "qrticketvalidator",
+    "storage_bucket": "qrticketvalidator.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:292707401346:android:5ddcfb07ea3dc805d77e9b",
+        "android_client_info": {
+          "package_name": "com.example.qrapp1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANoVDfuuK_pgV3EcNkfS977SwelB2GpgE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
