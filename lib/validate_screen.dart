@@ -15,6 +15,9 @@ class _ValidateScreenState extends State<ValidateScreen> {
   bool isScanning = true;
   final MobileScannerController cameraController = MobileScannerController();
 
+  final Color primaryColor = const Color(0xFFDEA449);
+  final Color cardBackground = Colors.white;
+
   void validateTicket(String scannedValue) async {
     setState(() {
       resultMessage = "🔄 Validating...";
@@ -69,12 +72,12 @@ class _ValidateScreenState extends State<ValidateScreen> {
   Color getAlertColor(String status) {
     switch (status) {
       case "valid":
-        return Colors.green.shade50;
+        return Colors.green.shade100;
       case "used":
-        return Colors.yellow.shade50;
+        return Colors.yellow.shade100;
       case "wrong_event":
       case "invalid_format":
-        return Colors.red.shade50;
+        return Colors.red.shade100;
       default:
         return Colors.grey.shade100;
     }
@@ -83,9 +86,9 @@ class _ValidateScreenState extends State<ValidateScreen> {
   Color getBorderColor(String status) {
     switch (status) {
       case "valid":
-        return Colors.green.shade600;
+        return Colors.green.shade700;
       case "used":
-        return Colors.yellow.shade700;
+        return Colors.orange.shade700;
       case "wrong_event":
       case "invalid_format":
         return Colors.red.shade700;
@@ -97,42 +100,50 @@ class _ValidateScreenState extends State<ValidateScreen> {
   IconData getStatusIcon(String status) {
     switch (status) {
       case "valid":
-        return Icons.check_circle;
+        return Icons.check_circle_rounded;
       case "used":
-        return Icons.warning;
+        return Icons.warning_rounded;
       case "wrong_event":
       case "invalid_format":
-        return Icons.error;
+        return Icons.error_rounded;
       default:
-        return Icons.info;
+        return Icons.info_outline;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
-      backgroundColor: Colors.blue.shade50,
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text("🎟️ Ticket Validator"),
-        backgroundColor: Colors.blue.shade300,
-        foregroundColor: Colors.white,
+        title: const Text(
+          "🎟️ Ticket Validator",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
       ),
       body: Center(
         child: Card(
-          elevation: 8,
+          color: cardBackground,
+          elevation: 10,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: SizedBox(
-            width: 380,
+            width: screenWidth < 420 ? double.infinity : 380,
+            height: 550,
             child: Column(
               children: [
                 Expanded(
                   flex: 3,
-                  child: isScanning
-                      ? ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: MobileScanner(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    child: isScanning
+                        ? MobileScanner(
                             controller: cameraController,
                             onDetect: (capture) {
                               final List<Barcode> barcodes = capture.barcodes;
@@ -143,9 +154,14 @@ class _ValidateScreenState extends State<ValidateScreen> {
                                 }
                               }
                             },
+                          )
+                        : Container(
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: Icon(Icons.qr_code_scanner, size: 100, color: Colors.grey),
+                            ),
                           ),
-                        )
-                      : const Center(child: Icon(Icons.qr_code_scanner, size: 100)),
+                  ),
                 ),
                 Expanded(
                   flex: 2,
@@ -155,11 +171,12 @@ class _ValidateScreenState extends State<ValidateScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (resultMessage.isNotEmpty)
-                          Container(
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: getAlertColor(status),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: getBorderColor(status),
                                 width: 2,
@@ -167,12 +184,15 @@ class _ValidateScreenState extends State<ValidateScreen> {
                             ),
                             child: Row(
                               children: [
-                                Icon(getStatusIcon(status), size: 30),
+                                Icon(getStatusIcon(status), size: 32, color: getBorderColor(status)),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     resultMessage,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -185,13 +205,14 @@ class _ValidateScreenState extends State<ValidateScreen> {
                             child: ElevatedButton.icon(
                               onPressed: resetScanner,
                               icon: const Icon(Icons.restart_alt),
-                              label: const Text("🔁 Scan Again"),
+                              label: const Text("Scan Again"),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade400,
+                                backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
                             ),
