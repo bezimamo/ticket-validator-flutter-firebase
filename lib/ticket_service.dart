@@ -5,30 +5,54 @@ class TicketService {
 
   static Future<String> validateTicket(String ticketId, String eventId) async {
     try {
-      final querySnapshot = await _db
-          .collection('events')
-          .doc(eventId)
+      final eventRef = _db.collection('events').doc(eventId);
+
+      // 🔍 Fetch event metadata
+      final eventDoc = await eventRef.get();
+      if (!eventDoc.exists) return "❌ Event not found";
+
+      final eventData = eventDoc.data()!;
+      final eventDate = (eventData['eventDate'] as Timestamp).toDate();
+      final eventName = eventData['eventName'] ?? eventId;
+      final now = DateTime.now();
+
+      // 📆 Check if ticket is being used on the correct day
+      if (now.year != eventDate.year ||
+          now.month != eventDate.month ||
+          now.day != eventDate.day) {
+        return "❌ Ticket not valid today. \"$eventName\" is on ${eventDate.toLocal()}";
+      }
+
+      // 🎟️ Find the ticket
+      final ticketQuery = await eventRef
           .collection('tickets')
-          .where('ticketId', isEqualTo: ticketId.trim())
+          .where('ticketId', isEqualTo: ticketId)
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isEmpty) {
-        return "❌ Invalid or mismatched ticket";
+      if (ticketQuery.docs.isEmpty) return "❌ Ticket not found";
+
+      final ticketDoc = ticketQuery.docs.first;
+      final ticketRef = ticketDoc.reference;
+
+      // 🔁 Check if this ticket was already used for this event date
+      final validations = await ticketRef
+          .collection('validations')
+          .where('eventDate', isEqualTo: Timestamp.fromDate(eventDate))
+          .limit(1)
+          .get();
+
+      if (validations.docs.isNotEmpty) {
+        return "⚠️ Ticket already used for \"$eventName\" on ${eventDate.toLocal()}";
       }
 
-      final ticket = querySnapshot.docs.first;
-
-      if (ticket['used'] == true) {
-        return "⚠️ Ticket Already Used";
-      }
-
-      await ticket.reference.update({
-        'used': true,
-        'validatedAt': FieldValue.serverTimestamp(), // Adds timestamp
+      // ✅ Save validation
+      await ticketRef.collection('validations').add({
+        'eventDate': Timestamp.fromDate(eventDate),
+        'validatedAt': FieldValue.serverTimestamp()
       });
 
-      return "✅ Ticket is Valid and now marked as used";
+      return "✅ Ticket valid for \"$eventName\" on ${eventDate.toLocal()}";
     } catch (e) {
       return "❗ Error validating ticket: $e";
     }

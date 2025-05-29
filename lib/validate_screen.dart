@@ -21,7 +21,6 @@ class _ValidateScreenState extends State<ValidateScreen> {
   final Color primaryColor = const Color(0xFFDEA449);
   final Color cardBackground = Colors.white;
 
-  /// Validates a ticket and updates Firestore
   void validateTicket(String scannedValue) async {
     setState(() {
       resultMessage = "🔄 Validating...";
@@ -42,47 +41,84 @@ class _ValidateScreenState extends State<ValidateScreen> {
       ticketId = scannedValue.trim();
     }
 
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('events')
-        .doc(eventId)
-        .collection('tickets')
-        .where('ticketId', isEqualTo: ticketId)
-        .limit(1)
-        .get();
+    try {
+      final eventDoc = await FirebaseFirestore.instance.collection('events').doc(eventId).get();
+      if (!eventDoc.exists) {
+        setState(() {
+          resultMessage = "❌ Event not found";
+          status = "invalid_format";
+          isLoading = false;
+        });
+        return;
+      }
 
-    if (querySnapshot.docs.isEmpty) {
+      final eventName = eventDoc.data()?['eventName'] ?? eventId;
+      final eventDate = (eventDoc.data()?['eventDate'] as Timestamp?)?.toDate();
+
+      final now = DateTime.now();
+      if (eventDate == null || now.isBefore(eventDate.subtract(const Duration(minutes: 15)))) {
+        setState(() {
+          resultMessage = "⏰ Too early to scan ticket for: $eventName";
+          status = "invalid_format";
+          isLoading = false;
+        });
+        return;
+      }
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .collection('tickets')
+          .where('ticketId', isEqualTo: ticketId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        setState(() {
+          resultMessage = "❌ Invalid or mismatched ticket";
+          status = "invalid_format";
+          isLoading = false;
+        });
+        return;
+      }
+
+      final ticket = querySnapshot.docs.first;
+
+      final validationsRef = ticket.reference.collection('validations');
+      final validationsSnapshot = await validationsRef
+          .where('eventDate', isEqualTo: Timestamp.fromDate(eventDate))
+          .limit(1)
+          .get();
+
+      if (validationsSnapshot.docs.isNotEmpty) {
+        final validatedAt = validationsSnapshot.docs.first.data()['timestamp'] as Timestamp;
+        final formattedDate = validatedAt.toDate().toString();
+
+        setState(() {
+          resultMessage = "⚠️ Ticket Already Used\n✔️ Event: $eventName\n📅 Validated at: $formattedDate";
+          status = "used";
+          isLoading = false;
+        });
+        return;
+      }
+
+      await validationsRef.add({
+        'timestamp': FieldValue.serverTimestamp(),
+        'eventDate': Timestamp.fromDate(eventDate),
+      });
+
       setState(() {
-        resultMessage = "❌ Invalid or mismatched ticket";
+        resultMessage = "✅ Ticket is Valid!\n🎉 Event: $eventName";
+        status = "valid";
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        resultMessage = "❗ Error: $e";
         status = "invalid_format";
         isLoading = false;
       });
-      return;
     }
-
-    final ticket = querySnapshot.docs.first;
-
-    if (ticket['used'] == true) {
-      Timestamp validatedAt = ticket['validatedAt'];
-      String formattedDate = validatedAt.toDate().toString();
-
-      setState(() {
-        resultMessage = "⚠️ Ticket Already Used\n✔️ Validated on: $formattedDate";
-        status = "used";
-        isLoading = false;
-      });
-      return;
-    }
-
-    await ticket.reference.update({
-      'used': true,
-      'validatedAt': FieldValue.serverTimestamp(),
-    });
-
-    setState(() {
-      resultMessage = "✅ Ticket is Valid!";
-      status = "valid";
-      isLoading = false;
-    });
   }
 
   void resetScanner() {
@@ -150,10 +186,21 @@ class _ValidateScreenState extends State<ValidateScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text(
-          "🎟️ Ticket Validator",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Image.asset(
+      'assets/logo.png',
+      height: 28, // Adjust size as needed
+    ),
+    const SizedBox(width: 8),
+    const Text(
+      "Ticket Validator",
+      style: TextStyle(fontWeight: FontWeight.bold),
+    ),
+  ],
+),
+
         centerTitle: true,
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
@@ -167,36 +214,36 @@ class _ValidateScreenState extends State<ValidateScreen> {
           margin: const EdgeInsets.all(16),
           child: SizedBox(
             width: screenWidth < 420 ? double.infinity : 380,
-            height: 520, // Reduced height to fix overflow issue
+            height: 520,
             child: Column(
               children: [
                 Expanded(
-                  flex: 2, // Reduced height for QR scanner
+                  flex: 2,
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                     child: isScanning
                         ? SizedBox(
-                      height: 180, // Fixed height for scanner to prevent overflow
-                      child: MobileScanner(
-                        controller: cameraController,
-                        onDetect: (capture) {
-                          final List<Barcode> barcodes = capture.barcodes;
-                          if (barcodes.isNotEmpty) {
-                            final scannedTicketId = barcodes.first.rawValue?.trim() ?? "";
-                            if (scannedTicketId.isNotEmpty) {
-                              validateTicket(scannedTicketId);
-                            }
-                          }
-                        },
-                      ),
-                    )
+                            height: 180,
+                            child: MobileScanner(
+                              controller: cameraController,
+                              onDetect: (capture) {
+                                final List<Barcode> barcodes = capture.barcodes;
+                                if (barcodes.isNotEmpty) {
+                                  final scannedTicketId = barcodes.first.rawValue?.trim() ?? "";
+                                  if (scannedTicketId.isNotEmpty) {
+                                    validateTicket(scannedTicketId);
+                                  }
+                                }
+                              },
+                            ),
+                          )
                         : Container(
-                      height: 180, // Keep height fixed when scanning stops
-                      color: Colors.grey.shade200,
-                      child: const Center(
-                        child: Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
-                      ),
-                    ),
+                            height: 180,
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
+                            ),
+                          ),
                   ),
                 ),
                 Expanded(
