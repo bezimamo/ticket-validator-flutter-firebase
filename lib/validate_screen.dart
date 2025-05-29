@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'ticket_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ValidateScreen extends StatefulWidget {
   const ValidateScreen({super.key});
@@ -12,19 +12,16 @@ class ValidateScreen extends StatefulWidget {
 }
 
 class _ValidateScreenState extends State<ValidateScreen> {
-  // UI state variables
   String resultMessage = "Scan a ticket to validate";
   String status = "";
   bool isScanning = true;
   bool isLoading = false;
 
   final MobileScannerController cameraController = MobileScannerController();
-
-  // Custom colors
   final Color primaryColor = const Color(0xFFDEA449);
   final Color cardBackground = Colors.white;
 
-  /// Handle ticket validation from scanned value
+  /// Validates a ticket and updates Firestore
   void validateTicket(String scannedValue) async {
     setState(() {
       resultMessage = "🔄 Validating...";
@@ -35,7 +32,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
     });
 
     String ticketId = "";
-    String eventId = "event001"; // Default eventId
+    String eventId = "event001";
 
     if (scannedValue.contains(':')) {
       var parts = scannedValue.split(':');
@@ -45,25 +42,49 @@ class _ValidateScreenState extends State<ValidateScreen> {
       ticketId = scannedValue.trim();
     }
 
-    final result = await TicketService.validateTicket(ticketId, eventId);
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('events')
+        .doc(eventId)
+        .collection('tickets')
+        .where('ticketId', isEqualTo: ticketId)
+        .limit(1)
+        .get();
+
+    if (querySnapshot.docs.isEmpty) {
+      setState(() {
+        resultMessage = "❌ Invalid or mismatched ticket";
+        status = "invalid_format";
+        isLoading = false;
+      });
+      return;
+    }
+
+    final ticket = querySnapshot.docs.first;
+
+    if (ticket['used'] == true) {
+      Timestamp validatedAt = ticket['validatedAt'];
+      String formattedDate = validatedAt.toDate().toString();
+
+      setState(() {
+        resultMessage = "⚠️ Ticket Already Used\n✔️ Validated on: $formattedDate";
+        status = "used";
+        isLoading = false;
+      });
+      return;
+    }
+
+    await ticket.reference.update({
+      'used': true,
+      'validatedAt': FieldValue.serverTimestamp(),
+    });
 
     setState(() {
-      resultMessage = result;
+      resultMessage = "✅ Ticket is Valid!";
+      status = "valid";
       isLoading = false;
-
-      if (result.contains("✅")) {
-        status = "valid";
-      } else if (result.contains("⚠️")) {
-        status = "used";
-      } else if (result.contains("Wrong event")) {
-        status = "wrong_event";
-      } else {
-        status = "invalid_format";
-      }
     });
   }
 
-  /// Reset the scanner for a new scan
   void resetScanner() {
     setState(() {
       resultMessage = "Scan a ticket to validate";
@@ -74,7 +95,6 @@ class _ValidateScreenState extends State<ValidateScreen> {
     cameraController.start();
   }
 
-  /// Color based on validation status
   Color getAlertColor(String status) {
     switch (status) {
       case "valid":
@@ -89,7 +109,6 @@ class _ValidateScreenState extends State<ValidateScreen> {
     }
   }
 
-  /// Border color based on validation status
   Color getBorderColor(String status) {
     switch (status) {
       case "valid":
@@ -104,7 +123,6 @@ class _ValidateScreenState extends State<ValidateScreen> {
     }
   }
 
-  /// Icon based on validation status
   IconData getStatusIcon(String status) {
     switch (status) {
       case "valid":
@@ -125,59 +143,41 @@ class _ValidateScreenState extends State<ValidateScreen> {
     super.dispose();
   }
 
-  /// Build UI
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFE6B4), Color(0xFFFFF3E2)],
-          ),
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: const Text(
+          "🎟️ Ticket Validator",
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Center(
-          child: Card(
-            color: cardBackground,
-            elevation: 10,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            margin: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: screenWidth < 420 ? double.infinity : 380,
-              height: 560,
-              child: Column(
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        "🎟️ Ticket Validator",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // QR Scanner
-                  Expanded(
-                    flex: 3,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      child: isScanning
-                          ? MobileScanner(
+        centerTitle: true,
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+      ),
+      body: Center(
+        child: Card(
+          color: cardBackground,
+          elevation: 12,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          margin: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: screenWidth < 420 ? double.infinity : 380,
+            height: 520, // Reduced height to fix overflow issue
+            child: Column(
+              children: [
+                Expanded(
+                  flex: 2, // Reduced height for QR scanner
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: isScanning
+                        ? SizedBox(
+                            height: 180, // Fixed height for scanner to prevent overflow
+                            child: MobileScanner(
                               controller: cameraController,
                               onDetect: (capture) {
                                 final List<Barcode> barcodes = capture.barcodes;
@@ -188,87 +188,81 @@ class _ValidateScreenState extends State<ValidateScreen> {
                                   }
                                 }
                               },
-                            )
-                          : Container(
-                              color: Colors.grey.shade200,
-                              child: const Center(
-                                child: Icon(Icons.qr_code_scanner, size: 100, color: Colors.grey),
-                              ),
                             ),
-                    ),
-                  ),
-
-                  // Result Display
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: getAlertColor(status),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: getBorderColor(status),
-                                width: 2,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  getStatusIcon(status),
-                                  size: 32,
-                                  color: getBorderColor(status),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: isLoading
-                                      ? const Center(child: CircularProgressIndicator())
-                                      : Text(
-                                          resultMessage,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                ),
-                              ],
+                          )
+                        : Container(
+                            height: 180, // Keep height fixed when scanning stops
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
                             ),
                           ),
-                          const SizedBox(height: 20),
-
-                          // Scan Again Button
-                          if (!isScanning)
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: resetScanner,
-                                icon: const Icon(Icons.restart_alt),
-                                label: const Text("Scan Again"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: getAlertColor(status),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: getBorderColor(status),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 6,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(getStatusIcon(status), size: 36, color: getBorderColor(status)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: isLoading
+                                    ? const Center(child: CircularProgressIndicator())
+                                    : Text(
+                                        resultMessage,
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                        softWrap: true,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!isScanning)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: resetScanner,
+                              icon: const Icon(Icons.restart_alt),
+                              label: const Text("Scan Again"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
