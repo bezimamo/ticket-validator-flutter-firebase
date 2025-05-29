@@ -187,20 +187,19 @@ class _ValidateScreenState extends State<ValidateScreen> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    Image.asset(
-      'assets/logo.png',
-      height: 28, // Adjust size as needed
-    ),
-    const SizedBox(width: 8),
-    const Text(
-      "Ticket Validator",
-      style: TextStyle(fontWeight: FontWeight.bold),
-    ),
-  ],
-),
-
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 28,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "OWL Event Ticket Validator",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         centerTitle: true,
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
@@ -210,7 +209,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
         child: Card(
           color: cardBackground,
           elevation: 12,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
           margin: const EdgeInsets.all(16),
           child: SizedBox(
             width: screenWidth < 420 ? double.infinity : 380,
@@ -258,7 +257,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                           decoration: BoxDecoration(
                             color: getAlertColor(status),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(30),
                             border: Border.all(
                               color: getBorderColor(status),
                               width: 2,
@@ -273,7 +272,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
                           ),
                           child: Text(
                             resultMessage,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, ),
                             softWrap: true,
                             overflow: TextOverflow.visible,
                           ),
@@ -291,7 +290,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                               ),
                             ),
                           ),
