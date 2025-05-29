@@ -176,27 +176,27 @@ class _ValidateScreenState extends State<ValidateScreen> {
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                     child: isScanning
                         ? SizedBox(
-                            height: 180, // Fixed height for scanner to prevent overflow
-                            child: MobileScanner(
-                              controller: cameraController,
-                              onDetect: (capture) {
-                                final List<Barcode> barcodes = capture.barcodes;
-                                if (barcodes.isNotEmpty) {
-                                  final scannedTicketId = barcodes.first.rawValue?.trim() ?? "";
-                                  if (scannedTicketId.isNotEmpty) {
-                                    validateTicket(scannedTicketId);
-                                  }
-                                }
-                              },
-                            ),
-                          )
+                      height: 180, // Fixed height for scanner to prevent overflow
+                      child: MobileScanner(
+                        controller: cameraController,
+                        onDetect: (capture) {
+                          final List<Barcode> barcodes = capture.barcodes;
+                          if (barcodes.isNotEmpty) {
+                            final scannedTicketId = barcodes.first.rawValue?.trim() ?? "";
+                            if (scannedTicketId.isNotEmpty) {
+                              validateTicket(scannedTicketId);
+                            }
+                          }
+                        },
+                      ),
+                    )
                         : Container(
-                            height: 180, // Keep height fixed when scanning stops
-                            color: Colors.grey.shade200,
-                            child: const Center(
-                              child: Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
-                            ),
-                          ),
+                      height: 180, // Keep height fixed when scanning stops
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
+                      ),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -224,21 +224,11 @@ class _ValidateScreenState extends State<ValidateScreen> {
                               ),
                             ],
                           ),
-                          child: Row(
-                            children: [
-                              Icon(getStatusIcon(status), size: 36, color: getBorderColor(status)),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: isLoading
-                                    ? const Center(child: CircularProgressIndicator())
-                                    : Text(
-                                        resultMessage,
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                        softWrap: true,
-                                        overflow: TextOverflow.visible,
-                                      ),
-                              ),
-                            ],
+                          child: Text(
+                            resultMessage,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
                           ),
                         ),
                         const SizedBox(height: 16),
