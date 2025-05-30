@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 class ValidateScreen extends StatefulWidget {
   const ValidateScreen({super.key});
 
@@ -188,17 +188,23 @@ class _ValidateScreenState extends State<ValidateScreen> {
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 28,
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              "OWL Event Ticket Validator",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
+             children: [
+      Image.asset(
+        'assets/logo.png',
+        height: 28,
+      ),
+      const SizedBox(width: 8),
+      Text(
+        "OWL Event Ticket Validator",
+        style: GoogleFonts.roboto(
+          fontSize: 16, // ~1rem
+          fontWeight: FontWeight.w400, // normal
+          letterSpacing: 0.15, // ~0.00938em
+          height: 1.5, // line height
+          color: Colors.white,
+        ),
+      ),
+    ],
         ),
         centerTitle: true,
         backgroundColor: primaryColor,
