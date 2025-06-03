@@ -100,7 +100,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
 
       if (validationsSnapshot.docs.isNotEmpty) {
         final validatedAt = validationsSnapshot.docs.first.data()['timestamp'] as Timestamp;
-        final formattedDate = DateFormat('yyyy-MM-dd – hh:mm a').format(validatedAt.toDate());
+final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.toDate());
 
         setState(() {
           resultMessage = "⚠️ Ticket Already Used\n✔️ Event: $eventName\n📅 Validated at: $formattedDate";
