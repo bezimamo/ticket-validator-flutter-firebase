@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,14 +12,16 @@ class ValidateScreen extends StatefulWidget {
 }
 
 class _ValidateScreenState extends State<ValidateScreen> {
-  String resultMessage = "Scan a ticket to validate";
+  String resultMessage = "🎫 Scan a ticket to validate";
   String status = "";
   bool isScanning = true;
   bool isLoading = false;
   bool isDarkMode = false;
+  String ticketType = "";
 
   final MobileScannerController cameraController = MobileScannerController();
   final Color primaryColor = const Color(0xFFDEA449);
+  final Color vipColor = const Color(0xFF5E4A8E);
 
   void toggleTheme() {
     setState(() {
@@ -31,7 +31,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
 
   void validateTicket(String scannedValue) async {
     setState(() {
-      resultMessage = "🔄 Validating...";
+      resultMessage = "🔍 Validating Ticket...";
       status = "";
       isScanning = false;
       isLoading = true;
@@ -53,7 +53,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
       final eventDoc = await FirebaseFirestore.instance.collection('events').doc(eventId).get();
       if (!eventDoc.exists) {
         setState(() {
-          resultMessage = "❌ Event not found";
+          resultMessage = "❌ Event not found.";
           status = "invalid_format";
           isLoading = false;
         });
@@ -62,11 +62,11 @@ class _ValidateScreenState extends State<ValidateScreen> {
 
       final eventName = eventDoc.data()?['eventName'] ?? eventId;
       final eventDate = (eventDoc.data()?['eventDate'] as Timestamp?)?.toDate();
-
       final now = DateTime.now();
+
       if (eventDate == null || now.isBefore(eventDate.subtract(const Duration(minutes: 15)))) {
         setState(() {
-          resultMessage = "⏰ Too early to scan ticket for: $eventName";
+          resultMessage = "⏳ Too early to validate ticket for:\n🗓️ $eventName";
           status = "invalid_format";
           isLoading = false;
         });
@@ -83,7 +83,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
 
       if (querySnapshot.docs.isEmpty) {
         setState(() {
-          resultMessage = "❌ Invalid or mismatched ticket";
+          resultMessage = "❌ Invalid Ticket\nPlease check the code!";
           status = "invalid_format";
           isLoading = false;
         });
@@ -91,6 +91,7 @@ class _ValidateScreenState extends State<ValidateScreen> {
       }
 
       final ticket = querySnapshot.docs.first;
+      ticketType = ticket['type'] ?? 'Normal';
 
       final validationsRef = ticket.reference.collection('validations');
       final validationsSnapshot = await validationsRef
@@ -100,10 +101,11 @@ class _ValidateScreenState extends State<ValidateScreen> {
 
       if (validationsSnapshot.docs.isNotEmpty) {
         final validatedAt = validationsSnapshot.docs.first.data()['timestamp'] as Timestamp;
-final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.toDate());
+        final formattedDate = DateFormat('yyyy-MM-dd – hh:mm a').format(validatedAt.toDate());
 
         setState(() {
-          resultMessage = "⚠️ Ticket Already Used\n✔️ Event: $eventName\n📅 Validated at: $formattedDate";
+          resultMessage =
+              "⚠️ Already Used Ticket!\n\n🎉 Event: $eventName\n📅 Validated At: $formattedDate";
           status = "used";
           isLoading = false;
         });
@@ -116,13 +118,13 @@ final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.t
       });
 
       setState(() {
-        resultMessage = "✅ Ticket is Valid!\n🎉 Event: $eventName";
+        resultMessage = "✅ Ticket Valid!\n🎊 Welcome to $eventName 🎉";
         status = "valid";
         isLoading = false;
       });
     } catch (e) {
       setState(() {
-        resultMessage = "❗ Error: $e";
+        resultMessage = "❗ Error occurred.\n$e";
         status = "invalid_format";
         isLoading = false;
       });
@@ -131,7 +133,7 @@ final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.t
 
   void resetScanner() {
     setState(() {
-      resultMessage = "Scan a ticket to validate";
+      resultMessage = "🎫 Scan a ticket to validate";
       status = "";
       isScanning = true;
       isLoading = false;
@@ -139,38 +141,74 @@ final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.t
     cameraController.start();
   }
 
-  Color getAlertColor(String status, bool isDark) {
-    switch (status) {
-      case "valid":
-        return isDark ? Colors.green.shade900 : Colors.green.shade100;
-      case "used":
-        return isDark ? Colors.yellow.shade800 : Colors.yellow.shade100;
-      case "wrong_event":
-      case "invalid_format":
-        return isDark ? Colors.red.shade900 : Colors.red.shade100;
-      default:
-        return isDark ? Colors.grey.shade800 : Colors.grey.shade100;
+  Color getCardColor() {
+    if (ticketType == "VIP") {
+      return vipColor;
+    } else {
+      return Colors.blueGrey.shade600;
     }
   }
 
-  Color getBorderColor(String status) {
-    switch (status) {
-      case "valid":
-        return Colors.green.shade700;
-      case "used":
-        return Colors.orange.shade700;
-      case "wrong_event":
-      case "invalid_format":
-        return Colors.red.shade700;
-      default:
-        return Colors.grey.shade400;
+  Icon getTicketIcon() {
+    if (ticketType == "VIP") {
+      return const Icon(Icons.auto_awesome, color: Colors.amber, size: 30);
+    } else {
+      return const Icon(Icons.event_seat, color: Colors.white, size: 30);
     }
   }
 
-  @override
-  void dispose() {
-    cameraController.dispose();
-    super.dispose();
+  Widget getTicketBanner() {
+    if (ticketType == "VIP") {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.amber,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          "✨ VIP TICKET",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white70,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          "🪑 NORMAL TICKET",
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+        ),
+      );
+    }
+  }
+
+  IconData getStatusIcon() {
+    switch (status) {
+      case "valid":
+        return Icons.check_circle;
+      case "used":
+        return Icons.warning_amber;
+      case "invalid_format":
+        return Icons.error;
+      default:
+        return Icons.qr_code_2;
+    }
+  }
+
+  Color getStatusColor() {
+    switch (status) {
+      case "valid":
+        return Colors.greenAccent;
+      case "used":
+        return Colors.orangeAccent;
+      case "invalid_format":
+        return Colors.redAccent;
+      default:
+        return Colors.white;
+    }
   }
 
   @override
@@ -187,18 +225,13 @@ final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.t
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/logo.png',
-                height: 28,
-              ),
+              Image.asset('assets/logo.png', height: 28),
               const SizedBox(width: 8),
               Text(
-                "OWL Event Ticket Validator",
+                "OWL Ticket Validator",
                 style: GoogleFonts.roboto(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
-                  letterSpacing: 0.15,
-                  height: 1.5,
                   color: Colors.white,
                 ),
               ),
@@ -208,7 +241,10 @@ final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.t
           backgroundColor: primaryColor,
           actions: [
             IconButton(
-              icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
+              icon: Icon(
+                isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: Colors.white,
+              ),
               onPressed: toggleTheme,
               tooltip: "Toggle Theme",
             ),
@@ -216,98 +252,78 @@ final formattedDate = DateFormat('MMM/dd/yyyy – hh:mm a').format(validatedAt.t
         ),
         body: Center(
           child: Card(
-            color: theme.cardColor,
-            elevation: 12,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+            color: getCardColor(),
+            elevation: 20,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             margin: const EdgeInsets.all(16),
             child: SizedBox(
-              width: screenWidth < 420 ? double.infinity : 380,
-              height: 520,
+              width: screenWidth < 400 ? double.infinity : 360,
+              height: 550,
               child: Column(
                 children: [
+                  const SizedBox(height: 16),
+                  getTicketIcon(),
+                  const SizedBox(height: 8),
+                  getTicketBanner(),
+                  const SizedBox(height: 10),
                   Expanded(
                     flex: 2,
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius: BorderRadius.circular(16),
                       child: isScanning
                           ? SizedBox(
                               height: 180,
                               child: MobileScanner(
                                 controller: cameraController,
                                 onDetect: (capture) {
-                                  final List<Barcode> barcodes = capture.barcodes;
+                                  final barcodes = capture.barcodes;
                                   if (barcodes.isNotEmpty) {
-                                    final scannedTicketId = barcodes.first.rawValue?.trim() ?? "";
-                                    if (scannedTicketId.isNotEmpty) {
-                                      validateTicket(scannedTicketId);
+                                    final scannedValue = barcodes.first.rawValue?.trim() ?? "";
+                                    if (scannedValue.isNotEmpty) {
+                                      validateTicket(scannedValue);
                                     }
                                   }
                                 },
                               ),
                             )
-                          : Container(
-                              height: 180,
-                              color: theme.cardColor,
-                              child: Icon(Icons.qr_code_scanner, size: 80, color: theme.iconTheme.color),
-                            ),
+                          : Icon(getStatusIcon(), size: 120, color: getStatusColor()),
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: getAlertColor(status, isDarkMode),
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(
-                                color: getBorderColor(status),
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 6,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              resultMessage,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: isDarkMode ? Colors.white : Colors.black,
-                              ),
-                              softWrap: true,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (!isScanning)
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: resetScanner,
-                                icon: const Icon(Icons.restart_alt),
-                                label: const Text("Scan Again"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                ),
-                              ),
-                            ),
-                        ],
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black12.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        resultMessage,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  if (!isScanning)
+                    ElevatedButton.icon(
+                      onPressed: resetScanner,
+                      icon: const Icon(Icons.restart_alt),
+                      label: const Text("Scan Again"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
